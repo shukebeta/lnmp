@@ -1,0 +1,98 @@
+version: "3.2"
+
+services:
+
+  # Nginx 1.11.10: https://hub.docker.com/_/nginx/
+  nginx:
+    container_name: lnmp-nginx
+    build:
+      context: ./images/nginx
+      dockerfile: Dockerfile
+    ports:
+      - 80:80
+      - 443:443
+    depends_on:
+      - php
+    volumes:
+      - ../data/projects:/data/projects
+      - ./images/nginx/config:/etc/nginx/conf.d
+
+   # PHP7, 兼控制台
+  php:
+    container_name: lnmp-php7
+    build:
+      context: ./images/php7
+      dockerfile: Dockerfile
+    depends_on:
+      - memcached
+      - redis
+    volumes:
+      - ../data:/data
+      # 初始化数据库的脚本
+      - ./bin:/root/bin
+      - ./images/php7/config/php.ini:/etc/php/7.0/fpm/
+      - ./images/php7/config/.vimrc:/root/.vimrc
+      - ./images/php7/config/crontabs:/var/spool/cron/crontabs
+    tty: true
+    environment:
+      RUNNING_IN_CONTAINER: "1"
+
+  # MySQL 5.5
+  mysql:
+    container_name: lnmp-mysql
+    image: mysql:5.7
+    environment:
+      MYSQL_ROOT_PASSWORD: "root"
+      MYSQL_USER: "dbw"
+      MYSQL_PASSWORD: "dbwdbwdbw"
+#    ports:
+#      - "3306:3306"
+    volumes:
+      - ./database/mysql:/var/lib/mysql
+      - ./images/mysql5.7/conf.d:/etc/mysql/conf.d
+
+  memcached:
+    container_name: lnmp-memcached
+    image: memcached:alpine
+#    ports:
+#      - "11211:11211"
+
+  redis:
+    container_name: lnmp-redis
+    image: redis:alpine
+#    ports:
+#      - "6379:6379"
+    volumes:
+      - "./database/redis/data:/data"
+
+  rmq:
+    container_name: lnmp-rmq
+    build:
+      context: ./images/rmq
+      dockerfile: Dockerfile
+    ports:
+      - "15672:15672"
+
+  sphinx:
+    container_name: lnmp-sphinx
+    build:
+      context: ./images/sphinx
+      dockerfile: Dockerfile
+#    ports:
+#      - "9306:9306"
+#    volumes:
+#      - ./images/sphinx/crontabs:/etc/crontabs
+#      - ../data:/data
+
+  elasticsearch:
+    container_name: lnmq-esearch
+    image: docker.elastic.co/elasticsearch/elasticsearch:5.6.2
+    # build: ./images/elasticsearch/
+    volumes:
+      - ./images/elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+#    ports:
+#      - "9200:9200"
+#      - "9300:9300"
+    environment:
+      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
+    tty: true

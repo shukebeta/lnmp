@@ -1,0 +1,40 @@
+#!/bin/sh
+INDEXER='/usr/bin/indexer -c /etc/sphinx/sphinx.conf'
+DATE=`date '+%F %T'`
+
+logfile=/var/log/sphinx/sphinx.log
+index=$1
+
+function indexer() {
+	local indexname=$1
+	local counter=$2
+	local tb=$3
+	if [ ! -z "${index}" ] && [ "${indexname}" != "${index}" ]; then
+		return
+	fi
+
+	if [ "$tb" = "user" ]; then
+		mysql -P3306 -hmysql -uroot -proot xnw -e "REPLACE INTO sph_counter (counter_id,max_doc_id,comment) VALUES ($counter,(SELECT MAX(ctime) FROM $tb),'"$tb"')"
+	else
+		mysql -P3306 -hmysql -uroot -proot xnw -e "REPLACE INTO sph_counter (counter_id,max_doc_id,comment) VALUES ($counter,(SELECT MAX(id) FROM $tb),'"$tb"')"
+	fi
+	mysql -P3306 -hmysql -uroot -proot xnw -e "UPDATE sph_counter SET max_upd_id=(SELECT MAX(id) FROM change_list WHERE doc_type=$counter) WHERE counter_id=$counter"
+	$INDEXER $indexname --rotate
+	if [ $? -ne 0 ]; then
+		echo "$DATE rotate $indexname index fail" >> $logfile
+	fi
+}
+
+indexer weibosearch 1 weibo
+indexer messagesearch 2 message
+indexer commentsearch 3 weibo_comment
+indexer usersearch 4 user
+indexer qun_contacts 7 qun_contacts
+indexer qun_member 8 qun_member
+indexer remark 9 remark
+indexer group_msg 11 group_msg
+indexer qunnamesearch 12 qun
+indexer school_node 13 school_node
+indexer t_x_course 14 t_x_course
+indexer t_x_course_class 15 t_x_course_class
+

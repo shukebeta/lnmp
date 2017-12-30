@@ -1,0 +1,83 @@
+#!/bin/sh
+#filename:delta.sh
+#delta index two minutes
+
+merge_lock=/tmp/sph_counter.merge.lock
+delta_lock=/tmp/sph_counter.delta.lock
+is_merge=0
+if [ $# -gt 0 -a "$1" = "merge" ]; then
+  is_merge=1
+fi
+
+INDEXER='/usr/bin/indexer -c /etc/sphinx/sphinx.conf '
+logfile=/var/log/sphinx/sphinx.log
+index=$1
+
+function indexer() {
+	local indexfull=$1
+	local counter=$2
+	local tb=$3
+	local indexname=$4
+
+	if [ ! -z "${index}" ] && [ "${indexname}" != "${index}" ]; then
+		return
+	fi
+
+	if [ "$tb" = "user" ]; then
+		mysql -P3306 -hmysql -uroot -proot xnw -e "UPDATE sph_counter SET delta_doc_id=(SELECT MAX(ctime) FROM $tb) WHERE counter_id=$counter"
+	else
+		mysql -P3306 -hmysql -uroot -proot xnw -e "UPDATE sph_counter SET delta_doc_id=(SELECT MAX(id) FROM $tb) WHERE counter_id=$counter"
+	fi
+	mysql -P3306 -hmysql -uroot -proot xnw -e "UPDATE sph_counter SET delta_upd_id=(SELECT MAX(id) FROM change_list WHERE doc_type=$counter) WHERE counter_id=$counter"
+
+	$INDEXER $indexname --rotate
+	if [ $? -ne 0 ]; then
+		echo "$DATE rotate $indexname index fail" >> $logfile
+	fi
+	if [ $is_merge -eq 1 ]; then
+		touch $merge_lock
+  		$INDEXER --merge $indexfull $indexname --rotate
+		if [ $? -ne 0 ]; then
+			echo "$DATE merge $indexname $indexfull fail" >> $logfile
+		else
+  			mysql -P3306 -hmysql -uroot -proot xnw -e "UPDATE sph_counter SET max_doc_id=delta_doc_id,max_upd_id=delta_upd_id WHERE counter_id=$counter"
+		fi
+  		rm $merge_lock
+	fi
+}
+
+if [ -f $merge_lock ]; then
+  echo merging... exit.
+  exit
+fi
+
+if [ -f $delta_lock ]; then
+  if [ $is_merge -eq 1 ]; then
+    while [ -f $delta_lock ]
+    do
+      echo waiting deltaindexing finish...
+      sleep 1
+    done
+  else
+    echo deltaindexing... exit.
+    exit
+  fi
+fi
+
+touch $delta_lock
+
+indexer weibosearch 1 weibo weibo_delta
+indexer messagesearch 2 message message_delta
+indexer commentsearch 3 weibo_comment comment_delta
+indexer usersearch 4 user usersearch_delta
+indexer qun_contacts 7 qun_contacts qun_contacts_delta
+indexer qun_member 8 qun_member qun_member_delta
+indexer remark 9 remark remark_delta
+indexer group_msg 11 group_msg group_msg_delta
+indexer qunnamesearch 12 qun qunnamesearch_delta
+indexer school_node 13 school_node school_node_delta
+indexer t_x_course 14 t_x_course t_x_course_delta
+indexer t_x_course_class 15 t_x_course_class t_x_course_class_delta
+
+rm $delta_lock
+

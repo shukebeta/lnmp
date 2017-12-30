@@ -1,0 +1,13 @@
+#!/bin/sh
+
+if [ "$1" = "start" ]; then
+  /usr/bin/searchd -c /etc/sphinx
+elif [ "$1" = "stop" ]; then
+  /usr/bin/searchd --stop -c /etc/sphinx
+elif [ "$1" = "db" -o "$1" = "mysql" ]; then
+  mysql -P3306 -hmysql -uroot -proot xnw 
+elif [ "$1" = "test" ]; then
+  mysql -h0 -P9306 < search.sql
+else
+  mysql -h0 -P9306
+fi
