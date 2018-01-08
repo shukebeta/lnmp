@@ -1,7 +1,6 @@
 #!/bin/sh
 
-crond 
+crond
 searchd --nodetach &
-sleep 5 && /root/sh/gen-full-index
 /bin/sh
 

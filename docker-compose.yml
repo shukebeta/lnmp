@@ -10,11 +10,10 @@ services:
       dockerfile: Dockerfile
     ports:
       - 80:80
-      - 443:443
     depends_on:
       - php
     volumes:
-      - ../data/projects:/data/projects
+      - ../projects:/projects
       - ./images/nginx/config:/etc/nginx/conf.d
 
    # PHP7, 兼控制台
@@ -30,7 +29,7 @@ services:
       - ../data:/data
       # 初始化数据库的脚本
       - ./bin:/root/bin
-      - ./images/php7/config/php.ini:/etc/php/7.0/fpm/
+      - ./images/php7/config/php.ini:/etc/php/7.0/fpm/php.ini
       - ./images/php7/config/.vimrc:/root/.vimrc
       - ./images/php7/config/crontabs:/var/spool/cron/crontabs
     tty: true
